@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retirement Plan Tracker</title>
+    <title>Advanced Retirement Plan Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -441,11 +441,14 @@
             
             // Drawdown Phase
             let spending = (monthlySpending * 12) * Math.pow(1 + inflation, retirementAge - currentAge);
-            for (let age = retirementAge; age < lifeExpectancy; age++) {
+            // **FIXED**: Loop includes the final year of life expectancy to fund through that year.
+            for (let age = retirementAge; age <= lifeExpectancy; age++) {
                 const openingBalance = balance;
-                const growth = balance * postRetirementReturn;
                 const withdrawals = spending;
-                const endingBalance = balance + growth - withdrawals;
+                const balanceAfterWithdrawal = openingBalance - withdrawals;
+                const growth = balanceAfterWithdrawal > 0 ? balanceAfterWithdrawal * postRetirementReturn : 0;
+                const endingBalance = balanceAfterWithdrawal + growth;
+
                 drawdownData.push({ age, openingBalance, withdrawals, growth, endingBalance });
                 balance = endingBalance > 0 ? endingBalance : 0;
                 spending *= (1 + inflation);
@@ -462,8 +465,8 @@
             if (params.retirementAge <= params.currentAge) {
                 if (!isInternalUpdate) showAlert('Retirement age must be greater than current age.'); return;
             }
-            if (params.lifeExpectancy <= params.retirementAge) {
-                if (!isInternalUpdate) showAlert('Life expectancy must be greater than retirement age.'); return;
+            if (params.lifeExpectancy < params.retirementAge) {
+                if (!isInternalUpdate) showAlert('Life expectancy must be greater than or equal to retirement age.'); return;
             }
 
             const projections = generateProjections(params);
@@ -501,8 +504,12 @@
             const textColor = isDarkMode ? '#cbd5e1' : '#1e293b';
             const titleColor = isDarkMode ? '#f1f5f9' : '#0f172a';
 
-            const createDataset = (p) => [{x: params.currentAge, y: params.currentAssets}, ...p.yearlyData.map(d => ({ x: d.age, y: d.endingBalance })), ...p.drawdownData.map(d => ({ x: d.age, y: d.endingBalance > 0 ? d.endingBalance : 0 }))];
-            
+            const createDataset = (p) => {
+                const accumulation = p.yearlyData.map(d => ({ x: d.age, y: d.endingBalance }));
+                const drawdown = p.drawdownData.map(d => ({ x: d.age, y: d.endingBalance > 0 ? d.endingBalance : 0 }));
+                return [{ x: params.currentAge, y: params.currentAssets }, ...accumulation, ...drawdown];
+            };
+
             projectionChart = new Chart(projectionChartCanvas, {
                 type: 'line', data: { datasets: [
                     { label: 'Projected Balance', data: createDataset(mainProjections), borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: 'origin', tension: 0.2, pointRadius: 0 },
@@ -566,11 +573,20 @@
         function calculateTarget(p, retireUntilAge) {
             const yearsToRetire = p.retirementAge - p.currentAge;
             const spendingAtRetirement = (p.monthlySpending * 12) * Math.pow(1 + p.inflation, yearsToRetire);
-            const retirementYears = retireUntilAge - p.retirementAge;
+            // **FIXED**: The number of years in retirement includes the final year.
+            const retirementYears = retireUntilAge - p.retirementAge + 1;
             if (retirementYears <= 0) return 0;
+
             const realReturn = ((1 + p.postRetirementReturn) / (1 + p.inflation)) - 1;
-            return realReturn <= 0 ? spendingAtRetirement * retirementYears : spendingAtRetirement * ((1 - Math.pow(1 + realReturn, -retirementYears)) / realReturn);
+            
+            if (realReturn <= 0) {
+                return spendingAtRetirement * retirementYears;
+            }
+            
+            const pvAnnuity = spendingAtRetirement * ((1 - Math.pow(1 + realReturn, -retirementYears)) / realReturn);
+            return pvAnnuity * (1 + realReturn); // Annuity Due formula
         }
+
 
         // --- INITIALIZATION & EVENT LISTENERS ---
         document.addEventListener('DOMContentLoaded', () => {
