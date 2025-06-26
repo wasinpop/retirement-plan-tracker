@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retirement Plan Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Light Mode Styles */
+        .light body {
+            background-color: #f8fafc; /* slate-50 */
+            color: #0f172a; /* slate-900 */
+        }
+        .light .card {
+            background-color: white;
+            border-color: #e2e8f0; /* slate-200 */
+        }
+        .light .input-label { color: #334155; /* slate-700 */ }
+        .light .input-field {
+            background-color: white;
+            border-color: #cbd5e1; /* slate-300 */
+            color: #0f172a; /* slate-900 */
+        }
+        .light .result-value { color: #312e81; /* indigo-900 */ }
+        .light .result-label { color: #334155; /* slate-700 */ }
+        .light .surplus { color: #15803d !important; /* green-700 */ }
+        .light .shortfall { color: #b91c1c !important; /* red-700 */ }
+        .light .tab { color: #334155; /* slate-700 */ }
+        .light .tab.active {
+            border-bottom-color: #4f46e5; /* indigo-600 */
+            color: #1e293b; /* slate-800 */
+        }
+        .light .alert-warning {
+            background-color: #fefce8; /* yellow-50 */
+            border-color: #fde68a; /* yellow-300 */
+            color: #854d0e; /* yellow-800 */
+        }
+        .light .text-slate-700 { color: #334155; }
+        .light .text-slate-800 { color: #1e293b; }
+        .light .text-slate-900 { color: #0f172a; }
+        .light .table-header {
+             background-color: transparent;
+        }
+
+        /* Dark Mode Styles */
+        .dark body {
+            background-color: #0f172a; /* slate-900 */
+            color: #e2e8f0; /* slate-200 */
+        }
+        .dark .card {
+            background-color: #1e293b; /* slate-800 */
+            border-color: #334155; /* slate-700 */
+        }
+        .dark .input-label { color: #94a3b8; /* slate-400 */ }
+        .dark .input-field {
+            background-color: #334155; /* slate-700 */
+            border-color: #475569; /* slate-600 */
+            color: #f8fafc; /* slate-50 */
+        }
+        .dark .result-value { color: #a5b4fc; /* indigo-300 */ }
+        .dark .result-label { color: #cbd5e1; /* slate-300 */ }
+        .dark .surplus { color: #4ade80 !important; }
+        .dark .shortfall { color: #f87171 !important; }
+        .dark .tab { color: #94a3b8; }
+        .dark .tab.active {
+            border-bottom-color: #818cf8; /* indigo-400 */
+            color: #eef2ff; /* indigo-100 */
+        }
+        .dark .alert-warning {
+            background-color: #422006;
+            border-color: #b45309;
+            color: #fef3c7;
+        }
+        .dark .table-header {
+            background-color: rgba(30, 41, 59, 0.7); /* slate-800 with opacity */
+            backdrop-filter: blur(4px);
+        }
+
+        /* Base Styles (Shared) */
+        .card {
+            border-radius: 0.75rem; padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+            border: 1px solid; transition: background-color 0.3s, border-color 0.3s;
+        }
+        .input-group { position: relative; }
+        .input-label { display: block; font-weight: 500; margin-bottom: 0.5rem; font-size: 0.875rem; }
+        .input-field {
+            width: 100%; padding: 0.5rem 0.75rem; padding-left: 2.5rem;
+            border-radius: 0.5rem; border: 1px solid;
+            transition: border-color 0.2s, box-shadow 0.2s, background-color 0.3s;
+        }
+        .input-field:focus {
+            outline: none; border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        .dark .input-field:focus { border-color: #6366f1; }
+        .input-icon { position: absolute; left: 0.75rem; top: 2.3rem; color: #94a3b8; pointer-events: none; }
+        .result-value { font-weight: 700; font-size: 1.5rem; }
+        .result-label { font-size: 0.875rem; }
+        .tab { padding: 0.5rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; }
+        .goal-seek-btn {
+            background-color: #4f46e5; color: white; padding: 0.6rem 1.25rem;
+            border-radius: 0.5rem; font-weight: 500; transition: background-color 0.2s;
+            border: 1px solid transparent;
+        }
+        .goal-seek-btn:hover { background-color: #4338ca; }
+        .dark .goal-seek-btn:hover { background-color: #6366f1; }
+        .alert-message { padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; border: 1px solid; display: none; }
+
+        /* Theme Toggle Button */
+        #theme-toggle-container { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 50; }
+        #theme-toggle-btn {
+            background-color: #e2e8f0; border: 1px solid transparent; border-radius: 9999px;
+            padding: 0.5rem; cursor: pointer; transition: background-color 0.3s;
+        }
+        #theme-toggle-btn:hover { background-color: #cbd5e1; }
+        .dark #theme-toggle-btn { background-color: #334155; }
+        .dark #theme-toggle-btn:hover { background-color: #475569; }
+
+        .sun-icon, .moon-icon { width: 1.5rem; height: 1.5rem; }
+        .light .sun-icon, .dark .moon-icon { display: none; }
+        .light .moon-icon { color: #1e293b; }
+        .dark .sun-icon { color: #fde047; }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+
+    <div id="theme-toggle-container">
+        <button id="theme-toggle-btn" aria-label="Toggle theme">
+            <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+            </svg>
+            <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+            </svg>
+        </button>
+    </div>
+
+    <div class="max-w-screen-xl mx-auto space-y-8 mt-16">
+        <!-- Header -->
+        <div>
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100">Retirement Plan Tracker</h1>
+            <p class="mt-2 text-slate-700 dark:text-slate-300">A comprehensive tool to plan your journey to financial independence.</p>
+        </div>
+
+        <!-- Inputs Card -->
+        <div class="card">
+            <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-600 pb-4 mb-6">Your Profile & Goals</h2>
+            <div id="alertBox" class="alert-message"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
+                <!-- Inputs are the same, classes will handle theme changes -->
+                <div class="input-group">
+                    <label for="currentAge" class="input-label">Current Age</label>
+                    <div class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.52 19c.64-2.2 1.84-3 3.22-3h6.52c1.38 0 2.58.8 3.22 3"/><circle cx="12" cy="10" r="3"/><circle cx="12" cy="12" r="10"/></svg></div>
+                    <input type="number" id="currentAge" class="input-field" value="30" max="120">
+                </div>
+                <div class="input-group">
+                    <label for="retirementAge" class="input-label">Retirement Age</label>
+                     <div class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>
+                    <input type="number" id="retirementAge" class="input-field" value="60" max="120">
+                </div>
+                <div class="input-group">
+                    <label for="lifeExpectancy" class="input-label">Retire Until Age</label>
+                     <div class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+                    <input type="number" id="lifeExpectancy" class="input-field" value="90" max="120">
+                </div>
+                <div class="input-group">
+                    <label for="currentAssets" class="input-label">Current Assets (THB)</label>
+                    <div class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>
+                    <input type="text" id="currentAssets" class="input-field" value="1,000,000">
+                </div>
+                <div class="input-group">
+                    <label for="monthlyContribution" class="input-label">Monthly Savings (THB)</label>
+                     <div class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z"/><path d="M8 12h8"/><path d="M12 16V8"/></svg></div>
+                    <input type="text" id="monthlyContribution" class="input-field" value="20,000">
+                </div>
+                <div class="input-group">
+                    <label for="savingsIncreaseRate" class="input-label">Annual Savings Increase (%)</label>
+                    <div class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg></div>
+                    <input type="number" id="savingsIncreaseRate" class="input-field" value="3">
+                </div>
+                <div class="input-group">
+                    <label for="monthlySpending" class="input-label">Monthly Spending Goal</label>
+                    <div class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z"/><path d="M8 12h8"/></svg></div>
+                    <input type="text" id="monthlySpending" class="input-field" value="50,000">
+                </div>
+                <div class="input-group">
+                    <label for="annualReturn" class="input-label">Pre-Retirement Return (%)</label>
+                    <div class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+                    <input type="number" id="annualReturn" class="input-field" value="8">
+                </div>
+                <div class="input-group">
+                    <label for="postRetirementReturn" class="input-label">Post-Retirement Return (%)</label>
+                    <div class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+                    <input type="number" id="postRetirementReturn" class="input-field" value="5">
+                </div>
+                 <div class="input-group">
+                    <label for="inflation" class="input-label">Long-run Inflation (%)</label>
+                    <div class="input-icon"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+                    <input type="number" id="inflation" class="input-field" value="3">
+                </div>
+            </div>
+             <div class="border-t border-slate-200 dark:border-slate-600 pt-6 mt-4">
+                <h3 class="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-3">Analysis Tools</h3>
+                <div class="flex flex-wrap gap-4">
+                    <button id="solveForSavingsBtn" class="goal-seek-btn">Find Required Savings</button>
+                    <button id="solveForAgeBtn" class="goal-seek-btn">Find Earliest Retirement Age</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-8">
+            <!-- Left Column: Summary & Graphs -->
+            <div class="md:col-span-3 space-y-8">
+                <div class="card">
+                    <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-600 pb-4 mb-4">Retirement Outlook</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+                        <div>
+                            <p class="result-label">Retirement Goal</p>
+                            <p id="targetNestEgg" class="result-value">THB 0</p>
+                        </div>
+                        <div>
+                            <p class="result-label">Projected Savings</p>
+                            <p id="projectedNestEgg" class="result-value">THB 0</p>
+                        </div>
+                        <div>
+                            <p class="result-label">Surplus / Shortfall</p>
+                            <p id="gap" class="result-value">THB 0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-200 mb-4">Lifetime Wealth Projection</h2>
+                    <div class="relative h-64 md:h-96">
+                        <canvas id="projectionChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="text-xl font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-600 pb-4 mb-4">Stress Tests</h2>
+                     <div class="grid grid-cols-1 gap-6">
+                         <div>
+                             <h3 id="lowerReturnTitle" class="font-semibold text-slate-800 dark:text-slate-200">Lower Return Scenario</h3>
+                             <p class="text-sm text-slate-700 dark:text-slate-300 mt-1">Projection if pre-retirement return is 2% lower.</p>
+                             <p id="lowerReturnResult" class="mt-2 text-lg font-bold text-slate-900 dark:text-slate-100">THB 0</p>
+                         </div>
+                         <div>
+                             <h3 class="font-semibold text-slate-800 dark:text-slate-200">Longevity Scenario</h3>
+                             <p class="text-sm text-slate-700 dark:text-slate-300 mt-1">Target needed to fund retirement until age 95.</p>
+                             <p id="longevityResult" class="mt-2 text-lg font-bold text-slate-900 dark:text-slate-100">Requires: THB 0</p>
+                         </div>
+                     </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Tables -->
+            <div class="md:col-span-2 space-y-8">
+                <div class="card">
+                     <div class="flex border-b border-slate-200 dark:border-slate-600 mb-4 flex-wrap">
+                        <div id="tabYearly" class="tab active">Yearly</div>
+                        <div id="tabMonthly" class="tab">Monthly</div>
+                        <div id="tabDrawdown" class="tab">Drawdown</div>
+                    </div>
+                    <div id="yearlyProjection">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="sticky top-0 table-header">
+                                    <tr class="border-b border-slate-200 dark:border-slate-600">
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Age</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Opening</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Savings</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Growth</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Ending</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="projectionTableYearly" class="divide-y divide-slate-100 dark:divide-slate-700"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="monthlyProjection" class="hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead class="sticky top-0 table-header">
+                                    <tr class="border-b border-slate-200 dark:border-slate-600">
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Age</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Mon</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Opening</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Saving</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Growth</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Ending</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="projectionTableMonthly" class="divide-y divide-slate-100 dark:divide-slate-700"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="drawdownProjection" class="hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="sticky top-0 table-header">
+                                    <tr class="border-b border-slate-200 dark:border-slate-600">
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Age</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Opening</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Withdrawals</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Growth</th>
+                                        <th class="p-2 font-semibold text-slate-800 dark:text-slate-300">Ending</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="projectionTableDrawdown" class="divide-y divide-slate-100 dark:divide-slate-700"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <footer class="h-24"></footer>
+
+    <script>
+        // --- DOM ELEMENTS & CONSTANTS ---
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
+        const projectionChartCanvas = document.getElementById('projectionChart').getContext('2d');
+        const alertBoxEl = document.getElementById('alertBox');
+        
+        const inputIds = [
+            'currentAge', 'retirementAge', 'lifeExpectancy', 'currentAssets', 
+            'monthlyContribution', 'savingsIncreaseRate', 'monthlySpending', 
+            'annualReturn', 'postRetirementReturn', 'inflation'
+        ];
+        const ageInputIds = ['currentAge', 'retirementAge', 'lifeExpectancy'];
+        const tabIds = ['Yearly', 'Monthly', 'Drawdown'];
+
+        // --- GLOBAL CHART VARIABLE ---
+        let projectionChart = null;
+
+        // --- THEME MANAGEMENT ---
+        const applyTheme = (theme) => {
+            document.documentElement.className = theme;
+            setTimeout(() => calculateRetirementPlan(true), 50); 
+        };
+
+        themeToggleBtn.addEventListener('click', () => {
+            const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+            localStorage.setItem('theme', newTheme);
+            applyTheme(newTheme);
+        });
+
+        // --- INPUT PERSISTENCE & VALIDATION ---
+        const saveInputs = () => {
+            const inputs = {};
+            inputIds.forEach(id => inputs[id] = document.getElementById(id).value);
+            localStorage.setItem('retirementTrackerInputs', JSON.stringify(inputs));
+        };
+
+        const loadInputs = () => {
+            const savedInputs = localStorage.getItem('retirementTrackerInputs');
+            if (savedInputs) {
+                const inputs = JSON.parse(savedInputs);
+                inputIds.forEach(id => {
+                    if (inputs[id] !== undefined) document.getElementById(id).value = inputs[id];
+                });
+            }
+        };
+
+        const limitAgeInput = (e) => {
+             if (parseInt(e.target.value) > 120) e.target.value = 120;
+        }
+
+        // --- FORMATTING & UTILITIES ---
+        const thbFormatter = new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        const numberFormatter = new Intl.NumberFormat('en-US');
+        
+        const formatNumberInput = (e) => {
+            let value = e.target.value.replace(/,/g, '');
+            if (!isNaN(value) && value.length > 0) e.target.value = numberFormatter.format(value);
+        };
+        const getNumericValue = (id) => parseFloat(document.getElementById(id).value.replace(/,/g, '')) || 0;
+        
+        const getParams = () => ({
+            currentAge: parseInt(document.getElementById('currentAge').value) || 0,
+            retirementAge: parseInt(document.getElementById('retirementAge').value) || 0,
+            lifeExpectancy: parseInt(document.getElementById('lifeExpectancy').value) || 0,
+            currentAssets: getNumericValue('currentAssets'),
+            monthlyContribution: getNumericValue('monthlyContribution'),
+            savingsIncreaseRate: parseFloat(document.getElementById('savingsIncreaseRate').value) / 100 || 0,
+            monthlySpending: getNumericValue('monthlySpending'),
+            annualReturn: parseFloat(document.getElementById('annualReturn').value) / 100 || 0,
+            postRetirementReturn: parseFloat(document.getElementById('postRetirementReturn').value) / 100 || 0,
+            inflation: parseFloat(document.getElementById('inflation').value) / 100 || 0,
+        });
+
+        const showAlert = (message) => {
+            alertBoxEl.textContent = message;
+            alertBoxEl.className = 'alert-message alert-warning';
+            alertBoxEl.style.display = 'block';
+        };
+
+        const hideAlert = () => { alertBoxEl.style.display = 'none'; };
+        
+        // --- OPTIMIZED DATA GENERATION ---
+        function generateProjections(params) {
+            const { currentAge, retirementAge, lifeExpectancy, currentAssets, monthlyContribution, annualReturn, savingsIncreaseRate, monthlySpending, inflation, postRetirementReturn } = params;
+            
+            const yearlyData = [], monthlyData = [], drawdownData = [];
+            let balance = currentAssets;
+            let yearlyOpening = currentAssets;
+            let yearlyContributions = 0;
+            let currentMonthlyContribution = monthlyContribution;
+
+            // Accumulation Phase
+            const totalMonths = (retirementAge > currentAge) ? (retirementAge - currentAge) * 12 : 0;
+            for (let i = 0; i < totalMonths; i++) {
+                if (i > 0 && i % 12 === 0) currentMonthlyContribution *= (1 + savingsIncreaseRate);
+                
+                const growth = balance * (annualReturn / 12);
+                const endingBalance = balance + currentMonthlyContribution + growth;
+                monthlyData.push({ age: currentAge + Math.floor(i / 12), month: (i % 12) + 1, openingBalance: balance, contribution: currentMonthlyContribution, growth, endingBalance });
+                balance = endingBalance;
+                yearlyContributions += currentMonthlyContribution;
+                
+                if ((i + 1) % 12 === 0 || (i === totalMonths - 1 && totalMonths > 0)) {
+                    const yearGrowth = balance - yearlyOpening - yearlyContributions;
+                    yearlyData.push({ age: currentAge + Math.floor(i / 12), openingBalance: yearlyOpening, contributions: yearlyContributions, growth: yearGrowth, endingBalance: balance });
+                    yearlyOpening = balance;
+                    yearlyContributions = 0;
+                }
+            }
+            
+            // Drawdown Phase
+            let spending = (monthlySpending * 12) * Math.pow(1 + inflation, retirementAge - currentAge);
+            for (let age = retirementAge; age < lifeExpectancy; age++) {
+                const openingBalance = balance;
+                const growth = balance * postRetirementReturn;
+                const withdrawals = spending;
+                const endingBalance = balance + growth - withdrawals;
+                drawdownData.push({ age, openingBalance, withdrawals, growth, endingBalance });
+                balance = endingBalance > 0 ? endingBalance : 0;
+                spending *= (1 + inflation);
+            }
+            
+            return { yearlyData, monthlyData, drawdownData, finalBalance: balance };
+        }
+
+        // --- MAIN CALCULATION FUNCTION ---
+        function calculateRetirementPlan(isInternalUpdate = false) {
+            hideAlert();
+            const params = getParams();
+
+            if (params.retirementAge <= params.currentAge) {
+                if (!isInternalUpdate) showAlert('Retirement age must be greater than current age.'); return;
+            }
+            if (params.lifeExpectancy <= params.retirementAge) {
+                if (!isInternalUpdate) showAlert('Life expectancy must be greater than retirement age.'); return;
+            }
+
+            const projections = generateProjections(params);
+            const lowerReturnProjections = generateProjections({ ...params, annualReturn: params.annualReturn - 0.02 });
+            const target = calculateTarget(params, params.lifeExpectancy);
+            const longevityTarget = calculateTarget(params, 95);
+            
+            const projectedNestEgg = projections.yearlyData.length > 0 ? projections.yearlyData[projections.yearlyData.length - 1].endingBalance : params.currentAssets;
+            const lowerReturnNestEgg = lowerReturnProjections.yearlyData.length > 0 ? lowerReturnProjections.yearlyData[lowerReturnProjections.yearlyData.length - 1].endingBalance : params.currentAssets;
+
+            renderSummaries(target, projectedNestEgg, lowerReturnNestEgg, longevityTarget, params.annualReturn - 0.02);
+            renderProjectionChart(params, projections, lowerReturnProjections);
+            renderTable('Yearly', projections.yearlyData);
+            renderTable('Monthly', projections.monthlyData);
+            renderTable('Drawdown', projections.drawdownData);
+        }
+
+        // --- UI RENDERING ---
+        function renderSummaries(target, projected, lowerReturn, longevity, lowerReturnRate) {
+            document.getElementById('targetNestEgg').textContent = thbFormatter.format(target);
+            document.getElementById('projectedNestEgg').textContent = thbFormatter.format(projected);
+            document.getElementById('lowerReturnResult').textContent = thbFormatter.format(lowerReturn);
+            document.getElementById('longevityResult').textContent = `Requires: ${thbFormatter.format(longevity)}`;
+            document.getElementById('lowerReturnTitle').textContent = `Lower Return Scenario (${(lowerReturnRate * 100).toFixed(1)}%)`;
+            const gap = projected - target;
+            const gapEl = document.getElementById('gap');
+            gapEl.textContent = thbFormatter.format(gap);
+            gapEl.className = `result-value ${gap >= 0 ? 'surplus' : 'shortfall'}`;
+        }
+
+        function renderProjectionChart(params, mainProjections, lowerReturnProjections) {
+            if (projectionChart) projectionChart.destroy();
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+            const textColor = isDarkMode ? '#cbd5e1' : '#1e293b';
+            const titleColor = isDarkMode ? '#f1f5f9' : '#0f172a';
+
+            const createDataset = (p) => [{x: params.currentAge, y: params.currentAssets}, ...p.yearlyData.map(d => ({ x: d.age, y: d.endingBalance })), ...p.drawdownData.map(d => ({ x: d.age, y: d.endingBalance > 0 ? d.endingBalance : 0 }))];
+            
+            projectionChart = new Chart(projectionChartCanvas, {
+                type: 'line', data: { datasets: [
+                    { label: 'Projected Balance', data: createDataset(mainProjections), borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: 'origin', tension: 0.2, pointRadius: 0 },
+                    { label: `Lower Return`, data: createDataset(lowerReturnProjections), borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: 'origin', tension: 0.2, pointRadius: 0, borderDash: [5, 5] }
+                ]},
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { 
+                    x: { type: 'linear', title: { display: true, text: 'Age', color: titleColor }, ticks: { color: textColor }, grid: { color: gridColor } },
+                    y: { ticks: { callback: v => `฿${v/1e6}M`, color: textColor }, title: { display: true, text: 'Balance (THB)', color: titleColor }, grid: { color: gridColor } } 
+                }, plugins: { legend: { labels: { color: textColor } }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${thbFormatter.format(c.parsed.y)}` } },
+                    annotation: { annotations: { retirementLine: { type: 'line', xMin: params.retirementAge, xMax: params.retirementAge, borderColor: 'rgb(220, 38, 38)', borderWidth: 2, borderDash: [6, 6], label: { enabled: false } } } }
+                } }
+            });
+        }
+        
+        function renderTable(type, data) {
+            const el = document.getElementById(`projectionTable${type}`);
+            let html = '';
+            if (type === 'Yearly') {
+                html = data.map(r => `<tr class="text-sm"><td class="p-2">${r.age}</td><td class="p-2">${thbFormatter.format(r.openingBalance)}</td><td class="p-2">${thbFormatter.format(r.contributions)}</td><td class="p-2 text-green-600 dark:text-green-400">${thbFormatter.format(r.growth)}</td><td class="p-2 font-semibold">${thbFormatter.format(r.endingBalance)}</td></tr>`).join('');
+            } else if (type === 'Monthly') {
+                html = data.map(r => `<tr class="text-xs"><td class="p-2">${r.age}</td><td class="p-2">${r.month}</td><td class="p-2">${thbFormatter.format(r.openingBalance)}</td><td class="p-2">${thbFormatter.format(r.contribution)}</td><td class="p-2 text-green-600 dark:text-green-400">${thbFormatter.format(r.growth)}</td><td class="p-2 font-semibold">${thbFormatter.format(r.endingBalance)}</td></tr>`).join('');
+            } else if (type === 'Drawdown') {
+                html = data.map(r => `<tr class="text-sm"><td class="p-2">${r.age}</td><td class="p-2">${thbFormatter.format(r.openingBalance)}</td><td class="p-2 text-red-600 dark:text-red-400">${thbFormatter.format(r.withdrawals)}</td><td class="p-2 text-green-600 dark:text-green-400">${thbFormatter.format(r.growth)}</td><td class="p-2 font-semibold">${thbFormatter.format(r.endingBalance)}</td></tr>`).join('');
+            }
+            el.innerHTML = html || `<tr><td colspan="5" class="p-4 text-center text-slate-500 dark:text-slate-400">No data for this period.</td></tr>`;
+        }
+
+        // --- GOAL SEEKING ---
+        function solveForSavings() {
+            let low = 0, high = 500000, requiredSavings = high;
+            for(let i = 0; i < 20; i++) { // Binary search for required savings
+                let mid = (low + high) / 2;
+                const params = { ...getParams(), monthlyContribution: mid };
+                const projections = generateProjections(params);
+                const projected = projections.yearlyData.length > 0 ? projections.yearlyData[projections.yearlyData.length-1].endingBalance : params.currentAssets;
+                const target = calculateTarget(params, params.lifeExpectancy);
+                if (projected < target) low = mid;
+                else { requiredSavings = mid; high = mid; }
+            }
+            document.getElementById('monthlyContribution').value = numberFormatter.format(Math.ceil(requiredSavings));
+            calculateRetirementPlan(true);
+            saveInputs();
+        }
+        
+        function solveForAge() {
+             for(let age = getParams().currentAge + 1; age <= 120; age++) {
+                const params = {...getParams(), retirementAge: age};
+                const projections = generateProjections(params);
+                const projected = projections.yearlyData.length > 0 ? projections.yearlyData[projections.yearlyData.length-1].endingBalance : params.currentAssets;
+                const target = calculateTarget(params, params.lifeExpectancy);
+                if(projected >= target) {
+                    document.getElementById('retirementAge').value = age;
+                    calculateRetirementPlan(true);
+                    saveInputs();
+                    return;
+                }
+            }
+            showAlert("Cannot find a suitable retirement age with current inputs.");
+        }
+
+        function calculateTarget(p, retireUntilAge) {
+            const yearsToRetire = p.retirementAge - p.currentAge;
+            const spendingAtRetirement = (p.monthlySpending * 12) * Math.pow(1 + p.inflation, yearsToRetire);
+            const retirementYears = retireUntilAge - p.retirementAge;
+            if (retirementYears <= 0) return 0;
+            const realReturn = ((1 + p.postRetirementReturn) / (1 + p.inflation)) - 1;
+            return realReturn <= 0 ? spendingAtRetirement * retirementYears : spendingAtRetirement * ((1 - Math.pow(1 + realReturn, -retirementYears)) / realReturn);
+        }
+
+        // --- INITIALIZATION & EVENT LISTENERS ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            applyTheme(savedTheme);
+            loadInputs();
+            calculateRetirementPlan(false);
+        });
+
+        document.querySelectorAll('.input-field').forEach(input => {
+            input.addEventListener('input', () => {
+                calculateRetirementPlan(false);
+                saveInputs();
+            });
+        });
+
+        ageInputIds.forEach(id => document.getElementById(id).addEventListener('input', limitAgeInput));
+        ['currentAssets', 'monthlyContribution', 'monthlySpending'].forEach(id => {
+            document.getElementById(id).addEventListener('keyup', (e) => {
+                formatNumberInput(e);
+                saveInputs();
+            });
+        });
+
+        tabIds.forEach(id => {
+            document.getElementById(`tab${id}`).addEventListener('click', () => {
+                tabIds.forEach(t => {
+                    document.getElementById(`tab${t}`).classList.remove('active');
+                    document.getElementById(`${t.toLowerCase()}Projection`).classList.add('hidden');
+                });
+                document.getElementById(`tab${id}`).classList.add('active');
+                document.getElementById(`${id.toLowerCase()}Projection`).classList.remove('hidden');
+            });
+        });
+
+        document.getElementById('solveForSavingsBtn').addEventListener('click', solveForSavings);
+        document.getElementById('solveForAgeBtn').addEventListener('click', solveForAge);
+
+    </script>
+</body>
+</html>
