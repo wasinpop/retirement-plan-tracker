@@ -215,6 +215,7 @@
                 <div class="flex flex-wrap gap-4">
                     <button id="solveForSavingsBtn" class="goal-seek-btn">Find Required Savings</button>
                     <button id="solveForAgeBtn" class="goal-seek-btn">Find Earliest Retirement Age</button>
+                    <button id="solveForSpendingBtn" class="goal-seek-btn">Find Max Spending</button>
                 </div>
             </div>
         </div>
@@ -469,13 +470,11 @@
             }
 
             const projections = generateProjections(params);
-            // **FIXED**: Lower return stress test now only applies to pre-retirement return.
             const lowerReturnProjections = generateProjections({ ...params, annualReturn: params.annualReturn - 0.02 });
             const target = calculateTarget(params, params.lifeExpectancy);
             const longevityTarget = calculateTarget(params, 95);
             
             const projectedNestEgg = projections.yearlyData.length > 0 ? projections.yearlyData[projections.yearlyData.length - 1].endingBalance : params.currentAssets;
-            // **FIXED**: Correctly calculate the nest egg at retirement for the lower return scenario.
             const lowerReturnNestEgg = lowerReturnProjections.yearlyData.length > 0 ? lowerReturnProjections.yearlyData[lowerReturnProjections.yearlyData.length - 1].endingBalance : params.currentAssets;
 
             renderSummaries(target, projectedNestEgg, lowerReturnNestEgg, longevityTarget);
@@ -591,6 +590,29 @@
             showAlert("Cannot find a suitable retirement age with current inputs.");
         }
 
+        function solveForSpending() {
+            let low = 0, high = 500000, maxSpending = 0;
+            const originalParams = getParams();
+
+            for(let i = 0; i < 20; i++) { // Binary search
+                let mid = (low + high) / 2;
+                const params = { ...originalParams, monthlySpending: mid };
+                const projections = generateProjections(params);
+                const projected = projections.yearlyData.length > 0 ? projections.yearlyData[projections.yearlyData.length - 1].endingBalance : params.currentAssets;
+                const target = calculateTarget(params, params.lifeExpectancy);
+
+                if (projected >= target) {
+                    maxSpending = mid; // This spending is sustainable, try for more
+                    low = mid;
+                } else {
+                    high = mid; // Too high, reduce
+                }
+            }
+            document.getElementById('monthlySpending').value = numberFormatter.format(Math.floor(maxSpending));
+            calculateRetirementPlan(true);
+            saveInputs();
+        }
+
         function calculateTarget(p, retireUntilAge) {
             const yearsToRetire = p.retirementAge - p.currentAge;
             const spendingAtRetirement = (p.monthlySpending * 12) * Math.pow(1 + p.inflation, yearsToRetire);
@@ -644,6 +666,7 @@
 
         document.getElementById('solveForSavingsBtn').addEventListener('click', solveForSavings);
         document.getElementById('solveForAgeBtn').addEventListener('click', solveForAge);
+        document.getElementById('solveForSpendingBtn').addEventListener('click', solveForSpending);
 
     </script>
 </body>
